@@ -25,6 +25,7 @@ use crate::error::Result;
 /// Raw entry from Claude Code JSONL
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct RawEntry {
     #[serde(rename = "type")]
     entry_type: Option<String>,
@@ -36,6 +37,7 @@ struct RawEntry {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RawMessage {
     role: Option<String>,
     model: Option<String>,
@@ -172,9 +174,7 @@ impl ConversationExporter {
 
     /// Anonymize file paths
     fn anonymize_path(&self, path: &str) -> String {
-        self.path_regex
-            .replace_all(path, "$1/user")
-            .into_owned()
+        self.path_regex.replace_all(path, "$1/user").into_owned()
     }
 
     /// Anonymize content (secrets, paths, etc.)
@@ -215,10 +215,7 @@ impl ConversationExporter {
                 let mut text_parts = Vec::new();
                 for item in arr {
                     if let serde_json::Value::Object(obj) = item {
-                        let item_type = obj
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let item_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
                         match item_type {
                             "text" => {
@@ -231,8 +228,12 @@ impl ConversationExporter {
                                     .get("name")
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("unknown");
-                                *self.stats.tool_usage.entry(tool_name.to_string()).or_insert(0) += 1;
-                                
+                                *self
+                                    .stats
+                                    .tool_usage
+                                    .entry(tool_name.to_string())
+                                    .or_insert(0) += 1;
+
                                 let input = obj
                                     .get("input")
                                     .map(|v| serde_json::to_string(v).unwrap_or_default())
@@ -263,9 +264,10 @@ impl ConversationExporter {
                 .filter_map(|item| {
                     if let serde_json::Value::Object(obj) = item {
                         if obj.get("type").and_then(|v| v.as_str()) == Some("thinking") {
-                            return obj.get("thinking").and_then(|v| v.as_str()).map(|s| {
-                                self.anonymize_content(s)
-                            });
+                            return obj
+                                .get("thinking")
+                                .and_then(|v| v.as_str())
+                                .map(|s| self.anonymize_content(s));
                         }
                     }
                     None
@@ -310,7 +312,11 @@ impl ConversationExporter {
             score += 0.15;
             // Bonus for agentic tools
             let agentic = ["Task", "dispatch", "batch", "agent"];
-            if turn.tools_used.iter().any(|t| agentic.iter().any(|a| t.contains(a))) {
+            if turn
+                .tools_used
+                .iter()
+                .any(|t| agentic.iter().any(|a| t.contains(a)))
+            {
                 score += 0.1;
             }
         }
@@ -410,7 +416,11 @@ impl ConversationExporter {
                         if let Some(ref model) = msg.model {
                             if model != "<synthetic>" && turn.model.is_empty() {
                                 turn.model = model.clone();
-                                *self.stats.model_distribution.entry(model.clone()).or_insert(0) += 1;
+                                *self
+                                    .stats
+                                    .model_distribution
+                                    .entry(model.clone())
+                                    .or_insert(0) += 1;
                             }
                         }
 
@@ -464,15 +474,20 @@ impl ConversationExporter {
     pub fn export(&mut self, source_dir: &Path, output_dir: &Path) -> Result<PathBuf> {
         std::fs::create_dir_all(output_dir)?;
 
-        println!("Exporting conversations from {:?}", source_dir);
-        println!("Output: {:?}", output_dir);
+        println!("Exporting conversations from {source_dir:?}");
+        println!("Output: {output_dir:?}");
         println!("Min quality: {}\n", self.config.min_quality);
 
         // Find all JSONL files
         let mut jsonl_files: Vec<PathBuf> = WalkDir::new(source_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "jsonl").unwrap_or(false))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .map(|ext| ext == "jsonl")
+                    .unwrap_or(false)
+            })
             .map(|e| e.path().to_path_buf())
             .collect();
 
@@ -511,7 +526,7 @@ impl ConversationExporter {
 
         // Write output
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-        let output_file = output_dir.join(format!("conversations_{}.jsonl", timestamp));
+        let output_file = output_dir.join(format!("conversations_{timestamp}.jsonl"));
 
         let mut file = File::create(&output_file)?;
         for turn in &all_turns {
@@ -519,7 +534,7 @@ impl ConversationExporter {
         }
 
         // Write training format
-        let training_file = output_dir.join(format!("training_{}.jsonl", timestamp));
+        let training_file = output_dir.join(format!("training_{timestamp}.jsonl"));
         let mut file = File::create(&training_file)?;
         for turn in &all_turns {
             let entry = TrainingEntry {
@@ -542,21 +557,21 @@ impl ConversationExporter {
         println!("Skipped (snapshots): {}", self.stats.skipped_snapshots);
         println!("Skipped (empty): {}", self.stats.skipped_empty);
         println!("\nOutput files:");
-        println!("  Conversations: {:?}", output_file);
-        println!("  Training data: {:?}", training_file);
+        println!("  Conversations: {output_file:?}");
+        println!("  Training data: {training_file:?}");
 
         println!("\nModels used:");
         let mut models: Vec<_> = self.stats.model_distribution.iter().collect();
         models.sort_by(|a, b| b.1.cmp(a.1));
         for (model, count) in models.iter().take(5) {
-            println!("  {}: {}", model, count);
+            println!("  {model}: {count}");
         }
 
         println!("\nTop tools:");
         let mut tools: Vec<_> = self.stats.tool_usage.iter().collect();
         tools.sort_by(|a, b| b.1.cmp(a.1));
         for (tool, count) in tools.iter().take(10) {
-            println!("  {}: {}", tool, count);
+            println!("  {tool}: {count}");
         }
 
         // Create splits
@@ -590,9 +605,9 @@ impl ConversationExporter {
             ("test", &shuffled[val_end..]),
         ];
 
-        println!("\nSplits ({:?}):", splits_dir);
+        println!("\nSplits ({splits_dir:?}):");
         for (name, data) in splits {
-            let path = splits_dir.join(format!("{}_{}.jsonl", name, timestamp));
+            let path = splits_dir.join(format!("{name}_{timestamp}.jsonl"));
             let mut file = File::create(&path)?;
             for turn in data {
                 let entry = TrainingEntry {
@@ -630,7 +645,7 @@ mod tests {
     #[test]
     fn test_anonymize_path() {
         let exporter = ConversationExporter::new();
-        
+
         assert_eq!(
             exporter.anonymize_path("/Users/john/work/project"),
             "/Users/user/work/project"
@@ -644,10 +659,10 @@ mod tests {
     #[test]
     fn test_anonymize_content() {
         let exporter = ConversationExporter::new();
-        
+
         let content = "My email is test@example.com and key is sk-abcdefghijklmnopqrstuvwxyz";
         let anonymized = exporter.anonymize_content(content);
-        
+
         assert!(anonymized.contains("email@example.com"));
         assert!(anonymized.contains("sk-REDACTED"));
         assert!(!anonymized.contains("test@example.com"));
@@ -656,8 +671,8 @@ mod tests {
     #[test]
     fn test_quality_calculation() {
         let exporter = ConversationExporter::new();
-        
-        let mut turn = ConversationTurn {
+
+        let turn = ConversationTurn {
             user: "Test".to_string(),
             assistant: "Response".to_string(),
             thinking: Some("Thinking about it...".to_string()),
@@ -675,6 +690,6 @@ mod tests {
         };
 
         let quality = exporter.calculate_quality(&turn);
-        assert!(quality > 0.8, "Quality should be high: {}", quality);
+        assert!(quality > 0.8, "Quality should be high: {quality}");
     }
 }

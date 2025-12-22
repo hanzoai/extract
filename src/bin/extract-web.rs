@@ -3,7 +3,7 @@
 //! Usage:
 //!   extract-web https://example.com
 
-use hanzo_extract::{ExtractorConfig, WebExtractor, Extractor};
+use hanzo_extract::{Extractor, ExtractorConfig, WebExtractor};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -30,21 +30,25 @@ fn main() {
         match extractor.extract(url).await {
             Ok(result) => {
                 if json_output {
-                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                        "url": url,
-                        "title": result.title,
-                        "text": result.text,
-                        "text_length": result.text_length,
-                    })).unwrap());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "url": url,
+                            "title": result.title,
+                            "text": result.text,
+                            "text_length": result.text_length,
+                        }))
+                        .unwrap()
+                    );
                 } else {
                     if let Some(title) = result.title {
-                        println!("# {}\n", title);
+                        println!("# {title}\n");
                     }
                     println!("{}", result.text);
                 }
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 std::process::exit(1);
             }
         }

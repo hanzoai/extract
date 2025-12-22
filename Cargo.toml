@@ -17,6 +17,7 @@ default = ["web", "pdf"]
 web = ["reqwest", "scraper"]
 pdf = ["lopdf"]
 conversations = ["walkdir", "sha2", "hex", "chrono", "rand"]
+sanitize = []  # Placeholder - requires hanzo-guard (not yet on crates.io)
 full = ["web", "pdf", "conversations"]
 
 [dependencies]
