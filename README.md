@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/hero.svg" alt="extract" width="880"></p>
+
 # Hanzo Extract
 
 [![Crates.io](https://img.shields.io/crates/v/hanzo-extract.svg)](https://crates.io/crates/hanzo-extract)
